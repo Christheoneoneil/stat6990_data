@@ -51,6 +51,9 @@ def to_network_struct(raw_data:pd.DataFrame, node:str, edge_at:str)->NXGraph:
     edge_list = pd.concat([edge_list, unconnected_data], axis=0)
  
     G = nx.from_pandas_edgelist(df=edge_list, source="source", target="target", edge_attr="publishers")
+    nx.set_node_attributes(G, edge_list["source"])
+    nx.write_edgelist(G, path="network.tsv", delimiter="\t")
+
     return G
 
 
