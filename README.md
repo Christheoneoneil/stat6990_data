@@ -4,7 +4,7 @@ This repo contains data and files to build a network of games as nodes, and edge
 
 # Repo Structure 
 
-\bold{network.tsv}: This file contains an edge list with publisher being the link attributes.
+network.tsv: This file contains an edge list with publisher being the link attributes.
 
 /repoduction_files: Contains python script for repoducing graph from games data. 
 
