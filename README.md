@@ -15,3 +15,11 @@ This repo contains data and files to build a network of games as nodes, and edge
 ## License 
 
 ODC-BY contained within the LICENSE.txt file. 
+
+## Resources 
+
+* [Network Cards](https://github.com/network-cards/network-cards), GitHub repository.
+* [Network Cards, arXiv paper.](https://arxiv.org/abs/2206.00026)
+* [GitHub Guide on Licensing](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository)
+* [Creative Commons Licenses](https://creativecommons.org/share-your-work/cclicenses/)
+* [Steam Scraper](https://github.com/FronkonGames/Steam-Games-Scraper?tab=readme-ov-file)
