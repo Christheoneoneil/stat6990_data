@@ -78,7 +78,7 @@ def build_network_card(G:NXGraph, update_dict:dict={}, out_name:str="network_car
     init_card.to_json(out_name)
 
 
-raw_data = read_json(c.filepath)
+raw_data = read_json("reproduction_files/games.json")
 graph = to_network_struct(raw_data=raw_data, node="name", edge_at="publishers")
 build_network_card(G=graph, update_dict={"Name" : "Video Game Publishers Network",
                                          "Nodes are": "Games",
