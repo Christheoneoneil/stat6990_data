@@ -21,7 +21,7 @@ def read_json(filepath)->pd.DataFrame:
    return pd.read_json(filepath).T
 
 
-def to_network_struct(raw_data:pd.DataFrame, node:str, edge_at:str)->NXGraph:
+def to_network_struct(raw_data:pd.DataFrame, node:str, edge_at:str, dates:str)->NXGraph:
     """
     converts pandas data frame to a network structure 
 
@@ -29,13 +29,15 @@ def to_network_struct(raw_data:pd.DataFrame, node:str, edge_at:str)->NXGraph:
     raw_data: raw inprocessed data from pandas dataframe 
     node: column containing node information 
     edge_at: column containg edge attribute that will be used to 'link' nodes
+    dates: date that detemine order of how nodes populate graph
 
     Returns: 
     G: graph from provided raw pandas dataframe
     """
 
-    raw_data = raw_data.copy()[[node, edge_at]].explode(column=edge_at)
+    raw_data = raw_data.copy()[[node, edge_at, dates]].explode(column=edge_at).drop_duplicates()
     # Get all combos between source and target nodes
+    raw_data.loc[:, dates] = pd.to_datetime(raw_data.loc[:, dates])
     unconnected_data = raw_data[(raw_data[edge_at]=="") & 
                                 (raw_data[edge_at]=="-") & 
                                 (raw_data[edge_at]=="(none)") &
@@ -44,13 +46,24 @@ def to_network_struct(raw_data:pd.DataFrame, node:str, edge_at:str)->NXGraph:
                         (raw_data[edge_at]!="-") & 
                         (raw_data[edge_at]!="(none)") &
                         (raw_data[edge_at]!='0')]
-    combos = lambda combs: pd.DataFrame([sorted(e) for e in list(combinations(combs[node].values, 2))], columns=['source', 'target'])
-    edge_list = raw_data.groupby(edge_at).apply(combos).reset_index().drop(columns=["level_1"])
+    
+    edges_grouped = raw_data.groupby(edge_at)
+    df_list = [edges_grouped.get_group(group) for group in edges_grouped.groups]
+    map_source = {node: "source"}
+    df_time_series = [df.sort_values(dates).groupby(edge_at, 
+                                                    group_keys=False, 
+                                                    sort=False).apply(lambda d: d.iloc[:-1].assign(target=d[node].values.tolist()[1:])).rename(columns=map_source) \
+                                                    if len(df) > 1 else df.assign(target=np.nan).rename(columns=map_source) \
+                     for df in df_list]
+
+    edge_list = pd.concat(df_time_series, axis=0)
+    print(edge_list)
     unconnected_data = unconnected_data.rename(columns={node: "source"})
     unconnected_data.loc[:, "target"] = [np.nan for _ in range(len(unconnected_data))]
     edge_list = pd.concat([edge_list, unconnected_data], axis=0)
- 
+    print(np.sum(edge_list["source"]==np.nan))
     G = nx.from_pandas_edgelist(df=edge_list, source="source", target="target", edge_attr="publishers")
+    G.remove_node(np.nan)
     nx.set_node_attributes(G, edge_list["source"])
     nx.write_edgelist(G, path="network.tsv", delimiter="\t")
 
@@ -79,10 +92,20 @@ def build_network_card(G:NXGraph, update_dict:dict={}, out_name:str="network_car
 
 
 raw_data = read_json("reproduction_files/games.json")
-graph = to_network_struct(raw_data=raw_data, node="name", edge_at="publishers")
+graph = to_network_struct(raw_data=raw_data, node="name", edge_at="publishers", dates="release_date")
+# publishers = nx.get_edge_attributes(graph, "publishers")
+# top_3 = pd.Series(publishers.values()).value_counts().keys()[:3]
+
+# for pub in top_3: 
+#     sub_edges = [key for key, value in publishers.items() if value == pub]
+#     print(sub_edges)
+#     sub_graph = graph.edge_subgraph(sub_edges)
+#     print(sub_graph)
+#     nx.write_edgelist(sub_graph, path=pub + "_network.tsv", delimiter="\t")
+
 build_network_card(G=graph, update_dict={"Name" : "Video Game Publishers Network",
                                          "Nodes are": "Games",
-                                         "Links are": "Publishers",
+                                         "Links are": "Publishers Orderd by Release Date",
                                          "Considerations": "Not all games were able to be scrpaed from steam",
                                          "Node metadata": "Name of video game",
                                          "Link metadata": "Name of video game publisher",
@@ -92,3 +115,4 @@ build_network_card(G=graph, update_dict={"Name" : "Video Game Publishers Network
                                          "Citation": "2022 Martin Bustos",
                                          "Funding": "n/a",
                                          "Access": "n/a"})
+# print(graph)
