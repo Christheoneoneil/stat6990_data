@@ -57,15 +57,15 @@ def to_network_struct(raw_data:pd.DataFrame, node:str, edge_at:str, dates:str)->
                      for df in df_list]
 
     edge_list = pd.concat(df_time_series, axis=0)
-    print(edge_list)
     unconnected_data = unconnected_data.rename(columns={node: "source"})
     unconnected_data.loc[:, "target"] = [np.nan for _ in range(len(unconnected_data))]
     edge_list = pd.concat([edge_list, unconnected_data], axis=0)
     print(np.sum(edge_list["source"]==np.nan))
-    G = nx.from_pandas_edgelist(df=edge_list, source="source", target="target", edge_attr="publishers")
+    G = nx.from_pandas_edgelist(df=edge_list, source="source", target="target", edge_attr=edge_at)
     G.remove_node(np.nan)
-    nx.set_node_attributes(G, edge_list["source"])
-    nx.write_edgelist(G, path="network.tsv", delimiter="\t")
+    unique_source = edge_list.drop_duplicates(subset="source").set_index("source")[dates].dt.strftime('%Y-%m-%d').to_dict()
+    nx.set_node_attributes(G, values=unique_source, name=dates)
+    nx.write_gml(G, path="network.gml")
 
     return G
 
@@ -93,6 +93,7 @@ def build_network_card(G:NXGraph, update_dict:dict={}, out_name:str="network_car
 
 raw_data = read_json("reproduction_files/games.json")
 graph = to_network_struct(raw_data=raw_data, node="name", edge_at="publishers", dates="release_date")
+print(nx.get_node_attributes(graph, name="release_date"))
 # publishers = nx.get_edge_attributes(graph, "publishers")
 # top_3 = pd.Series(publishers.values()).value_counts().keys()[:3]
 
@@ -103,16 +104,16 @@ graph = to_network_struct(raw_data=raw_data, node="name", edge_at="publishers", 
 #     print(sub_graph)
 #     nx.write_edgelist(sub_graph, path=pub + "_network.tsv", delimiter="\t")
 
-build_network_card(G=graph, update_dict={"Name" : "Video Game Publishers Network",
-                                         "Nodes are": "Games",
-                                         "Links are": "Publishers Orderd by Release Date",
-                                         "Considerations": "Not all games were able to be scrpaed from steam",
-                                         "Node metadata": "Name of video game",
-                                         "Link metadata": "Name of video game publisher",
-                                         "Date of creation": str(datetime.date.today()),
-                                         "Data generating process": "Data is gathered using SteamGamesSCraper API",
-                                         "Ethics": "n/a",
-                                         "Citation": "2022 Martin Bustos",
-                                         "Funding": "n/a",
-                                         "Access": "n/a"})
+# build_network_card(G=graph, update_dict={"Name" : "Video Game Publishers Network",
+#                                          "Nodes are": "Games",
+#                                          "Links are": "Publishers Orderd by Release Date",
+#                                          "Considerations": "Not all games were able to be scrpaed from steam",
+#                                          "Node metadata": "Name of video game",
+#                                          "Link metadata": "Name of video game publisher",
+#                                          "Date of creation": str(datetime.date.today()),
+#                                          "Data generating process": "Data is gathered using SteamGamesSCraper API",
+#                                          "Ethics": "n/a",
+#                                          "Citation": "2022 Martin Bustos",
+#                                          "Funding": "n/a",
+#                                          "Access": "n/a"})
 # print(graph)
