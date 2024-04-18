@@ -2,7 +2,7 @@ import pandas as pd
 import consts as c
 from itertools import combinations
 import networkx as nx
-import network_cards as nc
+
 import numpy as np
 import datetime
 
@@ -35,9 +35,12 @@ def to_network_struct(raw_data:pd.DataFrame, node:str, edge_at:str, dates:str)->
     G: graph from provided raw pandas dataframe
     """
 
-    raw_data = raw_data.copy()[[node, edge_at, dates]].explode(column=edge_at).drop_duplicates()
+    read_data = raw_data.copy()
+    raw_data = read_data[[node, edge_at]].explode(column=edge_at).drop_duplicates()
     # Get all combos between source and target nodes
-    raw_data.loc[:, dates] = pd.to_datetime(raw_data.loc[:, dates])
+    dt_data = read_data[[node, dates]]
+    
+
     unconnected_data = raw_data[(raw_data[edge_at]=="") & 
                                 (raw_data[edge_at]=="-") & 
                                 (raw_data[edge_at]=="(none)") &
@@ -47,23 +50,15 @@ def to_network_struct(raw_data:pd.DataFrame, node:str, edge_at:str, dates:str)->
                         (raw_data[edge_at]!="(none)") &
                         (raw_data[edge_at]!='0')]
     
-    edges_grouped = raw_data.groupby(edge_at)
-    df_list = [edges_grouped.get_group(group) for group in edges_grouped.groups]
-    map_source = {node: "source"}
-    df_time_series = [df.sort_values(dates).groupby(edge_at, 
-                                                    group_keys=False, 
-                                                    sort=False).apply(lambda d: d.iloc[:-1].assign(target=d[node].values.tolist()[1:])).rename(columns=map_source) \
-                                                    if len(df) > 1 else df.assign(target=np.nan).rename(columns=map_source) \
-                     for df in df_list]
-
-    edge_list = pd.concat(df_time_series, axis=0)
+    combos = lambda combs: pd.DataFrame([sorted(e) for e in list(combinations(combs[node].values, 2))], columns=['source', 'target'])
+    edge_list = raw_data.groupby(edge_at).apply(combos).reset_index().drop(columns=["level_1"])
     unconnected_data = unconnected_data.rename(columns={node: "source"})
     unconnected_data.loc[:, "target"] = [np.nan for _ in range(len(unconnected_data))]
     edge_list = pd.concat([edge_list, unconnected_data], axis=0)
-    print(np.sum(edge_list["source"]==np.nan))
+
     G = nx.from_pandas_edgelist(df=edge_list, source="source", target="target", edge_attr=edge_at)
-    G.remove_node(np.nan)
-    unique_source = edge_list.drop_duplicates(subset="source").set_index("source")[dates].dt.strftime('%Y-%m-%d').to_dict()
+    unique_source = dt_data.drop_duplicates(subset=node).set_index(node)[dates].to_dict()
+    
     nx.set_node_attributes(G, values=unique_source, name=dates)
     nx.write_gml(G, path="network.gml")
 
@@ -84,6 +79,7 @@ def build_network_card(G:NXGraph, update_dict:dict={}, out_name:str="network_car
     Returns: 
     None
     """
+    import network_cards as nc
     init_card = nc.NetworkCard(G)
     print(init_card)
     init_card.update_metainfo(update_dict)
@@ -93,7 +89,7 @@ def build_network_card(G:NXGraph, update_dict:dict={}, out_name:str="network_car
 
 raw_data = read_json("reproduction_files/games.json")
 graph = to_network_struct(raw_data=raw_data, node="name", edge_at="publishers", dates="release_date")
-print(nx.get_node_attributes(graph, name="release_date"))
+print(graph)
 # publishers = nx.get_edge_attributes(graph, "publishers")
 # top_3 = pd.Series(publishers.values()).value_counts().keys()[:3]
 
